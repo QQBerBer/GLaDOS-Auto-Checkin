@@ -102,13 +102,13 @@ def main():
             if "got" in msg_lower:
                 ok += 1
                 points = j.get("points", "-")
-                status = "✅ 成功"
+                status = "✅ 签到成功"
             elif "repeat" in msg_lower or "already" in msg_lower:
                 repeat += 1
                 status = "🔁 已签到"
             else:
                 fail += 1
-                status = "❌ 失败"
+                status = "❌ 签到失败"
 
             # 状态接口（允许失败）
             s = session.get(STATUS_URL, headers=headers, timeout=TIMEOUT)
@@ -121,7 +121,7 @@ def main():
             fail += 1
             status = "❌ 异常"
 
-        lines.append(f"{idx}. {email} | {status} | P:{points} | 剩余:{days}")
+        lines.append(f"{idx}. {email} | {status} | 获得积分:{points} | 剩余:{days}")
         time.sleep(random.uniform(1, 2))
 
     title = f"GLaDOS 签到完成 ✅{ok} ❌{fail} 🔁{repeat}"
