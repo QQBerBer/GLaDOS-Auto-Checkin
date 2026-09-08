@@ -123,7 +123,7 @@ def main():
             status = "❌ 异常"
 
         # 输出行加入总积分
-        lines.append(f"{idx}. {email} | {status} | 本次+{points} | 总积分:{total_points} | 剩余:{days}")
+        lines.append(f"{idx}. {email} | {status} | 本次获得{points}积分 | 总积分:{total_points} | 剩余:{days}")
         time.sleep(random.uniform(1, 2))
 
     title = f"GLaDOS 签到完成 ✅{ok} ❌{fail} 🔁{repeat}"
