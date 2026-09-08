@@ -4,17 +4,16 @@ import time
 import random
 import requests
 
-# 接口地址（请根据你实际使用的域名修改：glados.cloud / glados.space）
+# 接口域名（根据你实际使用的修改：glados.cloud / glados.space）
 BASE_DOMAIN = "glados.cloud"
 CHECKIN_URL = f"https://{BASE_DOMAIN}/api/user/checkin"
 STATUS_URL = f"https://{BASE_DOMAIN}/api/user/status"
 POINTS_URL = f"https://{BASE_DOMAIN}/api/user/points"
-EXCHANGE_URL = f"https://{BASE_DOMAIN}/api/user/exchange"  # 兑换接口
+EXCHANGE_URL = f"https://{BASE_DOMAIN}/api/user/exchange"
 
 # ========== 兑换配置 ==========
-# 积分达到阈值自动兑换对应套餐
-EXCHANGE_REQUIRED_POINTS = 500    # 触发兑换的积分门槛
-EXCHANGE_PLAN = "plan100"         # 兑换的套餐标识（对应100天套餐，以平台实际为准）
+EXCHANGE_REQUIRED_POINTS = 500  # 触发兑换的积分门槛
+EXCHANGE_PLAN = "plan100"       # 兑换的套餐标识
 # ==============================
 
 HEADERS_BASE = {
@@ -32,17 +31,13 @@ TIMEOUT = 10
 
 
 def push_telegram(bot_token: str, chat_id: str, title: str, content: str):
-    """推送消息到 Telegram Bot"""
     if not bot_token or not chat_id:
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     text = f"{title}\n\n{content}"
     if len(text) > 4000:
         text = text[:3990] + "..."
-    data = {
-        "chat_id": chat_id,
-        "text": text,
-    }
+    data = {"chat_id": chat_id, "text": text}
     try:
         resp = requests.post(url, json=data, timeout=TIMEOUT)
         if resp.status_code == 200 and safe_json(resp).get("ok"):
@@ -54,11 +49,10 @@ def push_telegram(bot_token: str, chat_id: str, title: str, content: str):
 
 
 def push_all(bot_token: str, chat_id: str, title: str, content: str):
-    """推送到 Telegram（如果已配置）"""
     if bot_token and chat_id:
         push_telegram(bot_token, chat_id, title, content)
     else:
-        print("⚠️ 未配置 Telegram 推送，请在 Secrets 中配置 TG_BOT_TOKEN 和 TG_CHAT_ID")
+        print("⚠️ 未配置 Telegram 推送")
 
 
 def safe_json(resp):
@@ -87,9 +81,10 @@ def main():
         headers["cookie"] = cookie
         email = "unknown"
         points = "-"
-        total_points = "-"
+        total_points_val = None
+        total_points_str = "-"
         days = "-"
-        exchange_result = "未兑换"  # 兑换结果
+        exchange_result = "未兑换"
 
         try:
             # 1. 执行签到
@@ -121,14 +116,19 @@ def main():
             if sj.get("leftDays") is not None:
                 days = f"{int(float(sj['leftDays']))} 天"
 
-            # 3. 查询总积分
+            # 3. 查询总积分（严格校验数字有效性）
             p = session.get(POINTS_URL, headers=headers, timeout=TIMEOUT)
             pj = safe_json(p)
-            if pj.get("points") is not None:
-                total_points = f"{int(float(pj['points']))}"
+            raw_points = pj.get("points")
+            if raw_points is not None:
+                try:
+                    total_points_val = int(float(raw_points))
+                    total_points_str = f"{total_points_val}"
+                except (ValueError, TypeError):
+                    total_points_val = None
 
-            # 4. 积分达标自动兑换
-            if total_points != "-" and int(total_points) >= EXCHANGE_REQUIRED_POINTS:
+            # 4. 积分达标才执行兑换（双重校验，避免异常）
+            if total_points_val is not None and total_points_val >= EXCHANGE_REQUIRED_POINTS:
                 try:
                     exchange_payload = {"planType": EXCHANGE_PLAN}
                     e = session.post(
@@ -139,21 +139,29 @@ def main():
                     )
                     ej = safe_json(e)
                     if ej.get("code") == 0:
-                        exchange_result = f"✅ 兑换成功({EXCHANGE_PLAN})"
+                        exchange_result = f"🎁 兑换成功({EXCHANGE_PLAN})"
                     else:
                         exchange_msg = ej.get("message", "未知错误")
-                        exchange_result = f"❌ 兑换失败:{exchange_msg}"
+                        exchange_result = f"⚠️ 兑换失败:{exchange_msg}"
                 except Exception:
-                    exchange_result = "❌ 兑换异常"
+                    exchange_result = "⚠️ 兑换异常"
 
         except Exception:
             fail += 1
             status = "❌ 异常"
 
-        # 拼接输出行
-        lines.append(
-            f"{idx}. {email} | {status} | 本次获得{points}积分 | 总积分:{total_points} | 剩余:{days} | {exchange_result}"
-        )
+        # 拼接输出：未兑换则不显示兑换相关内容
+        line_parts = [
+            f"{idx}. {email}",
+            status,
+            f"本次获得{points}积分",
+            f"总积分:{total_points_str}",
+            f"剩余:{days}"
+        ]
+        if exchange_result != "未兑换":
+            line_parts.append(exchange_result)
+        
+        lines.append(" | ".join(line_parts))
         time.sleep(random.uniform(1, 2))
 
     title = f"GLaDOS 签到完成 ✅{ok} ❌{fail} 🔁{repeat}"
