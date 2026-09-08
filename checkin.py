@@ -152,7 +152,7 @@ def main():
 
         # 拼接输出行
         lines.append(
-            f"{idx}. {email} | {status} | 本次+{points} | 总积分:{total_points} | 剩余:{days} | {exchange_result}"
+            f"{idx}. {email} | {status} | 本次获得{points}积分 | 总积分:{total_points} | 剩余:{days} | {exchange_result}"
         )
         time.sleep(random.uniform(1, 2))
 
