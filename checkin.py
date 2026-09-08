@@ -4,9 +4,9 @@ import time
 import random
 import requests
 
-
 CHECKIN_URL = "https://glados.cloud/api/user/checkin"
 STATUS_URL = "https://glados.cloud/api/user/status"
+POINTS_URL = "https://glados.cloud/api/user/points"  # 新增：总积分接口
 
 HEADERS_BASE = {
     "origin": "https://glados.cloud",
@@ -18,7 +18,6 @@ HEADERS_BASE = {
     ),
     "content-type": "application/json;charset=UTF-8",
 }
-
 PAYLOAD = {"token": "glados.cloud"}
 TIMEOUT = 10
 
@@ -27,19 +26,15 @@ def push_telegram(bot_token: str, chat_id: str, title: str, content: str):
     """推送消息到 Telegram Bot"""
     if not bot_token or not chat_id:
         return
-
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     text = f"{title}\n\n{content}"
-
     # Telegram 单条消息上限 4096 字符，做截断避免发送失败。
     if len(text) > 4000:
         text = text[:3990] + "..."
-
     data = {
         "chat_id": chat_id,
         "text": text,
     }
-
     try:
         resp = requests.post(url, json=data, timeout=TIMEOUT)
         if resp.status_code == 200 and safe_json(resp).get("ok"):
@@ -82,19 +77,19 @@ def main():
     for idx, cookie in enumerate(cookies, 1):
         headers = dict(HEADERS_BASE)
         headers["cookie"] = cookie
-
         email = "unknown"
-        points = "-"
+        points = "-"       # 本次签到获得积分
+        total_points = "-" # 账号总积分（新增）
         days = "-"
 
         try:
+            # 1. 执行签到
             r = session.post(
                 CHECKIN_URL,
                 headers=headers,
                 data=json.dumps(PAYLOAD),
                 timeout=TIMEOUT,
             )
-
             j = safe_json(r)
             msg = j.get("message", "")
             msg_lower = msg.lower()
@@ -110,23 +105,29 @@ def main():
                 fail += 1
                 status = "❌ 失败"
 
-            # 状态接口（允许失败）
+            # 2. 查询账号状态（剩余天数、邮箱）
             s = session.get(STATUS_URL, headers=headers, timeout=TIMEOUT)
             sj = safe_json(s).get("data") or {}
             email = sj.get("email", email)
             if sj.get("leftDays") is not None:
                 days = f"{int(float(sj['leftDays']))} 天"
 
+            # 3. 查询账号总积分（新增步骤）
+            p = session.get(POINTS_URL, headers=headers, timeout=TIMEOUT)
+            pj = safe_json(p)
+            if pj.get("points") is not None:
+                total_points = f"{int(float(pj['points']))}"
+
         except Exception:
             fail += 1
             status = "❌ 异常"
 
-        lines.append(f"{idx}. {email} | {status} | P:{points} | 剩余:{days}")
+        # 输出行加入总积分
+        lines.append(f"{idx}. {email} | {status} | 本次+{points} | 总积分:{total_points} | 剩余:{days}")
         time.sleep(random.uniform(1, 2))
 
     title = f"GLaDOS 签到完成 ✅{ok} ❌{fail} 🔁{repeat}"
     content = "\n".join(lines)
-
     print(content)
     
     push_all(bot_token, chat_id, title, content)
