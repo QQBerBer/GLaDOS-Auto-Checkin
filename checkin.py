@@ -151,7 +151,7 @@ def main():
         parts = [
             f"{idx}. {email}",
             status,
-            f"本次+{points}",
+            f"本次获得{points}积分",
             f"总积分:{total_points_str}",
             f"剩余:{days}"
         ]
