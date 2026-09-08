@@ -2,7 +2,7 @@ name: GLaDOS Auto Checkin
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 1,4 * * *'
 jobs:
   checkin:
     runs-on: ubuntu-latest
