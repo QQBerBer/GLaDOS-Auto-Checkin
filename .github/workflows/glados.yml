@@ -6,12 +6,16 @@ on:
 jobs:
   checkin:
     runs-on: ubuntu-latest
+    # 新增：显式授予权限，解决保活/清理步骤403
+    permissions:
+      contents: read
+      actions: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.8'
+          python-version: '3.10'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -23,11 +27,9 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           COOKIES: ${{ secrets.COOKIES }}
 
-      # 新增：工作流保活，防止60天无活动被禁用
       - name: Keep alive
         uses: liskin/gh-workflow-keepalive@v1 
 
-      # 新增：自动清理7天前的成功运行记录
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
